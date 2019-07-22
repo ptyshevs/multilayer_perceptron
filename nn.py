@@ -8,6 +8,21 @@ def random_initializer(n, m, seed=None):
 def zero_initializer(n, m):
     return np.zeros((n, m))
 
+class Linear:
+    def __init__(self):
+        self.last_input = None
+    
+    def forward(self, X):
+        self.last_input = X
+        return X
+    
+    def backward(self, dY):
+        s = self.last_input
+        return s * dy
+    
+    def __repr__(self):
+        return 'linear'
+
 class Sigmoid:
     def __init__(self):
         self.last_input = None
@@ -22,6 +37,9 @@ class Sigmoid:
     
     def _sigmoid(self, X):
         return 1 / (1 + np.exp(-X))
+    
+    def __repr__(self):
+        return 'sigmoid'
 
 # class Linear:
 #     def __init__(self, W, b):
@@ -45,7 +63,7 @@ class Layer:
         self.last_input = None
         
         self.W = random_initializer(output_dim, input_dim)
-        self.b = zero_initializer(input_dim, 1)
+        self.b = zero_initializer(output_dim, 1)
     
     def forward_propagate(self, X):
         self.last_input = X  # Cache last input
@@ -63,6 +81,14 @@ class Layer:
         dW = self.last_input.T @ dZ
         db = np.mean(dZ, axis=1, keepdims=True)
         return dW, db
+    
+    def __repr__(self):
+        return f"{self.activation} # params = {self._n_params()}"
+    
+    def _n_params(self):
+        w = self.W.shape[0] * self.W.shape[1]
+        b = self.b.shape[0]
+        return w + b
 
 class Optimizer:
     def __init__(self):
@@ -89,7 +115,12 @@ class NeuralNetwork:
     
     def add(self, layer):
         self.layers.append(layer)
+    
+    def summary(self):
+        return '\n'.join([repr(l) for l in self.layers])
 
 if __name__ == '__main__':
     nn = NeuralNetwork()
-    nn.add(Layer())
+    nn.add(Layer(1, 2, activation=Sigmoid()))
+    nn.add(Layer(2, 1, activation=Linear()))
+    print(nn.summary())
