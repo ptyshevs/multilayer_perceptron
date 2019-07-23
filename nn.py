@@ -32,28 +32,14 @@ class Sigmoid:
         return self._sigmoid(X)
     
     def backward(self, dY):
-        s = self._sigmoid(self.last_input)
-        return s * (1 - s) * dY
+        s = self._sigmoid(dY)
+        return s * (1 - s)
     
     def _sigmoid(self, X):
         return 1 / (1 + np.exp(-X))
     
     def __repr__(self):
         return 'sigmoid'
-
-# class Linear:
-#     def __init__(self, W, b):
-#         self.last_input = None
-
-    
-#     def forward(self, X):
-#         self.last_input = X
-#         return self._sigmoid(X)
-    
-#     def backward(self, dY):
-#         s = self._sigmoid(self.last_input)
-#         return s * (1 - s) * dY
-        
 
 class Layer:
     def __init__(self, input_dim, output_dim, activation=None):
@@ -67,20 +53,24 @@ class Layer:
     
     def forward_propagate(self, X):
         self.last_input = X  # Cache last input
-        
-        Z = self.W @ X + self.b
+#         print(f"W.shape={self.W.shape} | X.shape={X.shape}")
+        Z = X @ self.W.T + self.b.T
         self.last_output = Z
         if self.activation:
             return self.activation.forward(Z)
         else:
             return Z
 
-    def backward_propagate(self, dY):
-        
-        dZ = self.activation.backward(dY)
-        dW = self.last_input.T @ dZ
-        db = np.mean(dZ, axis=1, keepdims=True)
-        return dW, db
+    def backward_propagate(self, dA):
+        if self.activation is not None:
+            dZ = self.activation.backward(self.last_output) * dA.T
+        else:
+            dZ = dA.T
+#         print(f"last_input_shape={self.last_input.shape}, dZ.shape={dZ.shape}")
+        dW = self.last_input.T @ dZ / len(dZ)
+        db = np.mean(dZ, axis=0, keepdims=True)
+        dA_prev = (self.W.T @ dZ.T)
+        return dA_prev, dW, db
     
     def __repr__(self):
         return f"{self.activation} # params = {self._n_params()}"
@@ -89,6 +79,26 @@ class Layer:
         w = self.W.shape[0] * self.W.shape[1]
         b = self.b.shape[0]
         return w + b
+
+class MSE:
+    def forward(self, Y, Y_pred):
+        return np.sum(np.power(Y - Y_pred, 2))
+    
+    def backward(self, Y, Y_pred):
+        return -2 * (Y - Y_pred) / Y.shape[1]
+
+    def __repr__(self):
+        return 'MSE'
+
+class Binary:
+    def forward(self, Y, Y_pred):
+        return -(Y * np.log(np.clip(Y_pred, 1e-12, None)) + (1 - Y) * np.log(np.clip(1 - Y_pred, 1e-12, None))).mean()
+    
+    def backward(self, Y, Y_pred):
+        return - (np.divide(Y, Y_pred) - np.divide(1 - Y, 1 - Y_pred))
+    
+    def __repr__(self):
+        return "Binary cross-entropy"
 
 class Optimizer:
     def __init__(self):
@@ -103,15 +113,41 @@ class GradientDescent:
         return theta - self.learning_rate * grad
 
 class NeuralNetwork:
-    def __init__(self):
+    def __init__(self, n_iterations=100, learning_rate=0.01, loss=MSE(), verbose=True):
         """ Class containing Neural Network architecture: Layers and Optimizer """
         self.layers = []
+        # Optimizer stuff
+        self.n_iterations = n_iterations
+        self.learning_rate = learning_rate
+        self.loss = loss
+        self.verbose = verbose
     
     def fit(self, X, Y):
-        pass
+        for i in range(self.n_iterations):
+            y_pred = self.forward_(X)
+            cost = self.loss.forward(Y, y_pred)
+            if (self.verbose and i % 1 == 0):
+                print(f"{i}: {self.loss}={cost}")
+            self.backward_(Y, y_pred)
+    
+    def forward_(self, X):
+        for l in self.layers:
+            X = l.forward_propagate(X)
+        return X
+    
+    def backward_(self, Y, Y_pred):
+        dA = self.loss.backward(Y, Y_pred).T
+        grads = {}
+        for i, l in enumerate(reversed(self.layers)):
+            dA, dW, db = l.backward_propagate(dA)
+            grads[l] = dW, db
+        for i, l in enumerate(reversed(self.layers)):
+            dW, db = grads[l]
+            l.W = l.W - self.learning_rate * dW.T
+            l.b = l.b - self.learning_rate * db.T      
     
     def predict(self, X):
-        pass
+        return self.forward_(X)
     
     def add(self, layer):
         self.layers.append(layer)
