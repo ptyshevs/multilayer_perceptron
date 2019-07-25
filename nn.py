@@ -24,8 +24,9 @@ class Linear:
         return 'linear'
 
 class Sigmoid:
-    def __init__(self):
+    def __init__(self, protected=True):
         self.last_input = None
+        self.bias = 1e-10 if protected else 0
     
     def forward(self, X):
         self.last_input = X
@@ -36,16 +37,33 @@ class Sigmoid:
         return s * (1 - s)
     
     def _sigmoid(self, X):
-        return 1 / (1 + np.exp(-X))
+        return 1 / ((1 + np.exp(-X)) + self.bias)
     
     def __repr__(self):
         return 'sigmoid'
 
+class Relu:
+    
+    def forward(self, X):
+        return np.where(X >= 0, X, 0.0)
+    
+    def backward(self, Z):
+        return np.where(Z >= 0, 1.0, 0.0)
+
+class Quadratic:
+    
+    def forward(self, X):
+        return X ** 2
+    
+    def backward(self, Z):
+        return 2 * Z   
+
 class Layer:
-    def __init__(self, input_dim, output_dim, activation=None):
+    def __init__(self, input_dim, output_dim, activation=None, trainable=True):
         """ Linear -> Activation dense layer """
         self.input_dim, self.output_dim = input_dim, output_dim
         self.activation = activation
+        self.trainable = trainable
         self.last_input = None
         
         self.W = random_initializer(output_dim, input_dim)
@@ -126,7 +144,7 @@ class NeuralNetwork:
         for i in range(self.n_iterations):
             y_pred = self.forward_(X)
             cost = self.loss.forward(Y, y_pred)
-            if (self.verbose and i % 1 == 0):
+            if (self.verbose and i % 100 == 0):
                 print(f"{i}: {self.loss}={cost}")
             self.backward_(Y, y_pred)
     
@@ -141,10 +159,13 @@ class NeuralNetwork:
         for i, l in enumerate(reversed(self.layers)):
             dA, dW, db = l.backward_propagate(dA)
             grads[l] = dW, db
+        
+        # Optimization step
         for i, l in enumerate(reversed(self.layers)):
-            dW, db = grads[l]
-            l.W = l.W - self.learning_rate * dW.T
-            l.b = l.b - self.learning_rate * db.T      
+            if l.trainable:
+                dW, db = grads[l]
+                l.W = l.W - self.learning_rate * dW.T
+                l.b = l.b - self.learning_rate * db.T      
     
     def predict(self, X):
         return self.forward_(X)
