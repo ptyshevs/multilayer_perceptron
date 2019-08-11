@@ -8,55 +8,6 @@ def random_initializer(n, m, seed=None):
 def zero_initializer(n, m):
     return np.zeros((n, m))
 
-class Linear:
-    def __init__(self):
-        self.last_input = None
-    
-    def forward(self, X):
-        self.last_input = X
-        return X
-    
-    def backward(self, dY):
-        s = self.last_input
-        return s * dy
-    
-    def __repr__(self):
-        return 'linear'
-
-class Sigmoid:
-    def __init__(self, protected=True):
-        self.last_input = None
-        self.bias = 1e-10 if protected else 0
-    
-    def forward(self, X):
-        self.last_input = X
-        return self._sigmoid(X)
-    
-    def backward(self, dY):
-        s = self._sigmoid(dY)
-        return s * (1 - s)
-    
-    def _sigmoid(self, X):
-        return 1 / ((1 + np.exp(-X)) + self.bias)
-    
-    def __repr__(self):
-        return 'sigmoid'
-
-class Relu:
-    
-    def forward(self, X):
-        return np.where(X >= 0, X, 0.0)
-    
-    def backward(self, Z):
-        return np.where(Z >= 0, 1.0, 0.0)
-
-class Quadratic:
-    
-    def forward(self, X):
-        return X ** 2
-    
-    def backward(self, Z):
-        return 2 * Z   
 
 class Layer:
     def __init__(self, input_dim, output_dim, activation=None, trainable=True):
@@ -84,7 +35,6 @@ class Layer:
             dZ = self.activation.backward(self.last_output) * dA.T
         else:
             dZ = dA.T
-#         print(f"last_input_shape={self.last_input.shape}, dZ.shape={dZ.shape}")
         dW = self.last_input.T @ dZ / len(dZ)
         db = np.mean(dZ, axis=0, keepdims=True)
         dA_prev = (self.W.T @ dZ.T)
@@ -117,6 +67,16 @@ class Binary:
     
     def __repr__(self):
         return "Binary cross-entropy"
+
+class CrossEntropy:
+    def forward(self, Y, Y_pred):
+        return -(Y * np.log(np.clip(Y_pred, 1e-12, None))).mean()
+    
+    def backward(self, Y, Y_pred):
+        return Y_pred - Y
+    
+    def __repr__(self):
+        return "Multinomial cross-entropy"
 
 class Optimizer:
     def __init__(self):
