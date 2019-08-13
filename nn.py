@@ -91,20 +91,27 @@ class GradientDescent:
         return theta - self.learning_rate * grad
 
 class NeuralNetwork:
-    def __init__(self, n_iterations=100, learning_rate=0.01, loss=MSE(), verbose=True):
-        """ Class containing Neural Network architecture: Layers and Optimizer """
+    def __init__(self, n_iterations=100, learning_rate=0.05, loss=MSE(), verbose=True, verbose_step=100):
+        """
+        Class containing Neural Network architecture: Layers and Optimizer
+        
+        @param learning_rate: scale factor for parameters gradient update
+        @param loss: loss function to optimize
+        @param verbose: if True, learning process will output some statistics
+        """
         self.layers = []
         # Optimizer stuff
         self.n_iterations = n_iterations
         self.learning_rate = learning_rate
         self.loss = loss
         self.verbose = verbose
+        self.verbose_step = verbose_step
     
     def fit(self, X, Y):
         for i in range(self.n_iterations):
             y_pred = self.forward_(X)
             cost = self.loss.forward(Y, y_pred)
-            if (self.verbose and i % 100 == 0):
+            if (self.verbose and i % self.verbose_step == 0):
                 print(f"{i}: {self.loss}={cost}")
             self.backward_(Y, y_pred)
     

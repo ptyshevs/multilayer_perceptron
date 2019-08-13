@@ -63,6 +63,16 @@ class Sigmoid:
     def __repr__(self):
         return 'sigmoid'
 
+class Tanh:
+    def __init__(self):
+        pass
+    
+    def forward(self, X):
+        return np.tanh(X)
+    
+    def backward(self, Z):
+        return 1 - np.tanh(Z) ** 2
+
 class Relu:
     
     def forward(self, X):
