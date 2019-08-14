@@ -1,82 +1,7 @@
 import numpy as np
-
-def random_initializer(n, m, seed=None):
-    if seed is not None:
-        np.random.seed(seed)
-    return np.random.randn(n, m) * .01
-
-def zero_initializer(n, m):
-    return np.zeros((n, m))
-
-
-class Layer:
-    def __init__(self, input_dim, output_dim, activation=None, trainable=True):
-        """ Linear -> Activation dense layer """
-        self.input_dim, self.output_dim = input_dim, output_dim
-        self.activation = activation
-        self.trainable = trainable
-        self.last_input = None
-        
-        self.W = random_initializer(output_dim, input_dim)
-        self.b = zero_initializer(output_dim, 1)
-    
-    def forward_propagate(self, X):
-        self.last_input = X  # Cache last input
-#         print(f"W.shape={self.W.shape} | X.shape={X.shape}")
-        Z = X @ self.W.T + self.b.T
-        self.last_output = Z
-        if self.activation:
-            return self.activation.forward(Z)
-        else:
-            return Z
-
-    def backward_propagate(self, dA):
-        if self.activation is not None:
-            dZ = self.activation.backward(self.last_output) * dA.T
-        else:
-            dZ = dA.T
-        dW = self.last_input.T @ dZ / len(dZ)
-        db = np.mean(dZ, axis=0, keepdims=True)
-        dA_prev = (self.W.T @ dZ.T)
-        return dA_prev, dW, db
-    
-    def __repr__(self):
-        return f"{self.activation} # params = {self._n_params()}"
-    
-    def _n_params(self):
-        w = self.W.shape[0] * self.W.shape[1]
-        b = self.b.shape[0]
-        return w + b
-
-class MSE:
-    def forward(self, Y, Y_pred):
-        return np.sum(np.power(Y - Y_pred, 2))
-    
-    def backward(self, Y, Y_pred):
-        return -2 * (Y - Y_pred) / Y.shape[1]
-
-    def __repr__(self):
-        return 'MSE'
-
-class Binary:
-    def forward(self, Y, Y_pred):
-        return -(Y * np.log(np.clip(Y_pred, 1e-12, None)) + (1 - Y) * np.log(np.clip(1 - Y_pred, 1e-12, None))).mean()
-    
-    def backward(self, Y, Y_pred):
-        return - (np.divide(Y, Y_pred) - np.divide(1 - Y, 1 - Y_pred))
-    
-    def __repr__(self):
-        return "Binary cross-entropy"
-
-class CrossEntropy:
-    def forward(self, Y, Y_pred):
-        return -(Y * np.log(np.clip(Y_pred, 1e-12, None))).mean()
-    
-    def backward(self, Y, Y_pred):
-        return Y_pred - Y
-    
-    def __repr__(self):
-        return "Multinomial cross-entropy"
+from loss import *
+from layers import *
+from activations import *
 
 class Optimizer:
     def __init__(self):
@@ -115,9 +40,12 @@ class NeuralNetwork:
                 print(f"{i}: {self.loss}={cost}")
             self.backward_(Y, y_pred)
     
-    def forward_(self, X):
+    def forward_(self, X, inference=False):
+        """
+        Propagate input through consecutive layers
+        """
         for l in self.layers:
-            X = l.forward_propagate(X)
+            X = l.forward_propagate(X, inference=inference)
         return X
     
     def backward_(self, Y, Y_pred):
@@ -135,7 +63,7 @@ class NeuralNetwork:
                 l.b = l.b - self.learning_rate * db.T      
     
     def predict(self, X):
-        return self.forward_(X)
+        return self.forward_(X, inference=True)
     
     def add(self, layer):
         self.layers.append(layer)
