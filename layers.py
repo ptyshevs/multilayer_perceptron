@@ -1,26 +1,40 @@
 import numpy as np
+from activations import Identity, activation_to_obj
 
+def normal_initializer(n, m, loc=0, scale=1):
+    return np.random.normal(loc=loc, scale=scale, size=(n, m))
 
-def random_initializer(n, m, seed=None):
-    if seed is not None:
-        np.random.seed(seed)
-    return np.random.randn(n, m) * .01
+def uniform_initializer(n, m, low=0, high=1):
+    return np.random.uniform(low=low, high=high, size=(n, m))
 
 def zero_initializer(n, m):
     return np.zeros((n, m))
 
 
 class Dense:
-    def __init__(self, input_dim, output_dim, activation=None, trainable=True, dropout_rate=0.):
-        """ Linear -> Activation dense layer """
+    def __init__(self, input_dim, output_dim, activation='identity', trainable=True,
+                 dropout_rate=0., initializer='heuristic'):
+        """
+        Linear -> Activation dense layer
+        
+        @param activation: activation object (None corresponds to y(x)=x)
+        @param trainable: whether to perform update on the backward propagation
+        @param dropout_rate: fraction if activations that are zero-ed.
+        @param initializer: weights initialization procedure, should be one of those:
+                            'he', 'he_unif', 'xavier', 'xavier_unif', 'normal', 'unif', 'heuristic'
+                            
+                            'heuristic' - if activation is from Relu-family, 'he' is used.
+                                          if activation is from sigmoid-family, 'xavier' is used.
+                                          otherwise, samples are drawn from ~ N(0, 1) * 0.01
+                            bias is always initialized to zero
+        """
         self.input_dim, self.output_dim = input_dim, output_dim
-        self.activation = activation
+        self.activation = self._activation_mapper(activation)
         self.trainable = trainable
         self.dropout_rate = dropout_rate
         self.last_input = None
         
-        self.W = random_initializer(output_dim, input_dim)
-        self.b = zero_initializer(output_dim, 1)
+        self._initialize(input_dim, output_dim, initializer)
     
     def forward_propagate(self, X, inference=False):
         self.last_input = X  # Cache last input
@@ -55,6 +69,43 @@ class Dense:
         w = self.W.shape[0] * self.W.shape[1]
         b = self.b.shape[0]
         return w + b
+    
+    def _activation_mapper(self, activation):
+        if activation is None:
+            return Identity()
+        elif type(activation) is str:
+            return activation_to_obj(activation)
+        else:
+            return activation
+    
+    def _initialize(self, in_dim, out_dim, initializer):
+        self.b = zero_initializer(out_dim, 1)
+
+        if initializer == 'heuristic':
+            if self.activation == 'relu' or self.activation == 'leaky_relu':
+                initializer = 'he'
+            elif self.activation == 'sigmoid' or self.activation == 'tanh':
+                initializer = 'xavier'
+            else:
+                initializer = 'normal'
+
+        if initializer == 'he':
+            self.W = normal_initializer(out_dim, in_dim, scale=(2/in_dim))
+        elif initializer == 'he_unif':
+            limit = np.sqrt(6/(in_dim))
+            self.W = uniform_initializer(out_dim, in_dim, -limit, limit)
+        elif initializer == 'xavier':
+            self.W = normal_initializer(out_dim, in_dim, scale=(1/in_dim))
+        elif initializer == 'xavier_unif':
+            limit = np.sqrt(3/(in_dim))
+            self.W = uniform_initializer(out_dim, in_dim, -limit, limit)
+        elif initializer == 'normal':
+            self.W = normal_initializer(out_dim, in_dim) * .01
+        elif initializer == 'unif':
+            self.W = uniform_initializer(out_dim, in_dim, -np.sqrt(3),  np.sqrt(3))
+        else:
+            raise ValueError(f"Unrecognized initialization scheme {initializer}")
+            
 
 class Dropout:
     def __init__(self, drop_rate=.5, correct_magnitude=True):
