@@ -2,12 +2,55 @@ import numpy as np
 from loss import *
 from layers import *
 from activations import *
+from metrics import metric_mapper
+
+class History:
+    def __init__(self):
+        self.history = []
+    
+    def add(self, entry):
+        self.history.append(entry)
+    
+    def get(self, idx):
+        return self.history[idx]
 
 class Optimizer:
     def __init__(self):
         """ Class responsible for training process """
         pass
 
+class EarlyStopping:
+    def __init__(self, patience=6, monitor='loss'):
+        self.patience = patience
+        self.cnt = 0
+        self.prev_val = None
+        self.monitor = monitor
+        
+    def restart(self):
+        self.prev_val = None
+        self.cnt = 0
+    
+    def __call__(self, history, model):
+        last_entry = history[-1]
+        val = last_entry[self.monitor]
+        has_improved = False
+        if self.monitor.endswith('loss'):
+            if self.prev_val is None or self.prev_val > val:
+                has_improved = True
+        else:
+            if self.prev_val is None or self.prev_val < val:
+                has_improved = True
+        
+        if has_improved:
+            self.prev_val = val
+            self.cnt = 0
+        else:
+            self.cnt += 1
+        
+        stop = False
+        if self.cnt >= self.patience:
+            model.should_stop = True
+    
 class GradientDescent:
     def __init__(self, learning_rate=.01):
         self.learning_rate = learning_rate
@@ -31,18 +74,54 @@ class NeuralNetwork:
         self.verbose = verbose
         self.verbose_step = verbose_step
         self.debug = debug
+        self.should_stop = False
     
-    def fit(self, X, Y, n_epochs=1):
-        history = []
-        for i in range(n_epochs):
+    def fit(self, X, Y, X_val=None, Y_val=None, n_epochs=1, callbacks=None, metrics=[]):
+        history = History()
+        validation_provided = X_val is not None and Y_val is not None
+        for i in range(1, n_epochs + 1):
+            history_entry = {"epoch": i}
+
+            if validation_provided:
+                history_entry['val_loss'] = self.loss.forward(Y_val, self.forward_(X_val))
+                
+            
+            
             y_pred = self.forward_(X)
-            if self.debug:
-                print("y_pred:", y_pred)
             cost = self.loss.forward(Y, y_pred)
+            
+            history_entry["loss"] = cost
+            
+            for metric in metrics:
+                metric_obj = metric_mapper(metric)
+                history_entry[repr(metric_obj)] = metric_obj(Y, y_pred)
+                if validation_provided:
+                    history_entry['val_' + repr(metric_obj)] = metric_obj(Y, y_pred)
+            
             if (self.verbose and i % self.verbose_step == 0) or self.debug:
-                print(f"{i}: {self.loss}={cost}")
+                self._handle_output(history_entry, n_epochs)
+            
             self.backward_(Y, y_pred)
+            
+            if callbacks:
+                for cb in callbacks:
+                    cb(Y, y_pred)
+            
+            history.add(history_entry)
+            
+            if self.should_stop:
+                break
+
         return history
+    
+    def _handle_output(self, entry, n_epochs):
+        print(f"[{entry['epoch']}/{n_epochs}]: ", end='')
+        for k, v in entry.items():
+            if k == 'epoch':
+                continue
+            print(f"{k}={v:.5f}", end=' ')
+        print('')
+            
     
     def forward_(self, X, inference=False):
         """

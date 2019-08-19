@@ -1,8 +1,13 @@
 import numpy as np
 
-def accuracy(y_true, y_pred):
-    ev = y_true == y_pred
-    return ev.sum() / ev.size
+class accuracy:
+    @staticmethod
+    def __call__(y_true, y_pred, threshold=.5):
+        ev = y_true == (y_pred > threshold)
+        return ev.sum() / ev.size
+    
+    def __repr__(self):
+        return 'acc'
 
 def mean_squared_error(y_true, y_pred):
     return ((y_true - y_pred) ** 2).mean()
@@ -27,3 +32,13 @@ def cv_score(model, scoring, X, y, cv=3, verbose=False):
             print(f"[{i}]: {score}")
         cv_scores.append(score)
     return np.array(cv_scores)
+
+metrics_available = [accuracy(), mean_squared_error, rmse]
+
+def metric_mapper(metric):
+    if type(metric) is str:
+        for m in metrics_available:
+            if repr(m) == metric:
+                return m
+    else:
+        return metric
