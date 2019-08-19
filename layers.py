@@ -41,15 +41,16 @@ class Dense:
         Z = X @ self.W.T + self.b.T
         self.last_output = Z
         
-        A = self.activation.forward(Z) if self.activation is not None else Z
+        A = self.activation.forward(Z)
         A = A if (inference or self.dropout_rate == 0.) else self._dropout(A)
         return A
         
     def backward_propagate(self, dA):
-        if self.activation is not None:
-            dZ = self.activation.backward(self.last_output) * dA.T
-        else:
-            dZ = dA.T
+#         if self.activation is not None:
+#             dZ = self.activation.backward(self.last_output) * dA.T
+#         else:
+#             dZ = dA.T
+        dZ = self.activation.backward(self.last_output) * dA.T
         dW = self.last_input.T @ dZ / len(dZ)
         db = np.mean(dZ, axis=0, keepdims=True)
         dA_prev = (self.W.T @ dZ.T)

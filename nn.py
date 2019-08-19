@@ -16,7 +16,7 @@ class GradientDescent:
         return theta - self.learning_rate * grad
 
 class NeuralNetwork:
-    def __init__(self, n_iterations=100, learning_rate=0.05, loss=MSE(), verbose=True, verbose_step=100):
+    def __init__(self, loss, learning_rate=0.05, verbose=False, verbose_step=100, debug=False):
         """
         Class containing Neural Network architecture: Layers and Optimizer
         
@@ -26,19 +26,23 @@ class NeuralNetwork:
         """
         self.layers = []
         # Optimizer stuff
-        self.n_iterations = n_iterations
         self.learning_rate = learning_rate
-        self.loss = loss
+        self.loss = self._loss_mapper(loss)
         self.verbose = verbose
         self.verbose_step = verbose_step
+        self.debug = debug
     
-    def fit(self, X, Y):
-        for i in range(self.n_iterations):
+    def fit(self, X, Y, n_epochs=1):
+        history = []
+        for i in range(n_epochs):
             y_pred = self.forward_(X)
+            if self.debug:
+                print("y_pred:", y_pred)
             cost = self.loss.forward(Y, y_pred)
-            if (self.verbose and i % self.verbose_step == 0):
+            if (self.verbose and i % self.verbose_step == 0) or self.debug:
                 print(f"{i}: {self.loss}={cost}")
             self.backward_(Y, y_pred)
+        return history
     
     def forward_(self, X, inference=False):
         """
@@ -70,9 +74,16 @@ class NeuralNetwork:
     
     def summary(self):
         return '\n'.join([repr(l) for l in self.layers])
+    
+    def _loss_mapper(self, loss):
+        if type(loss) is str:
+            return loss_to_obj(loss)
+        else:
+            return loss
+        
 
 if __name__ == '__main__':
-    nn = NeuralNetwork()
-    nn.add(Layer(1, 2, activation=Sigmoid()))
-    nn.add(Layer(2, 1, activation=Linear()))
+    nn = NeuralNetwork('crossentropy')
+    nn.add(Layer(1, 2, activation='sigmoid'))
+    nn.add(Layer(2, 1, activation='linear'))
     print(nn.summary())

@@ -25,7 +25,7 @@ class Identity(Activation):
         return X
     
     def backward(self, Z):
-        return Z
+        return np.ones_like(Z)
     
     def __repr__(self):
         return 'identity'
@@ -123,7 +123,6 @@ class ELU(Activation):
     def __repr__(self):
         return 'elu'
 
-        
 
 class Quadratic(Activation):
     
