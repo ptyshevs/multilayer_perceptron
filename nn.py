@@ -75,11 +75,17 @@ class NeuralNetwork:
         self.verbose_step = verbose_step
         self.debug = debug
         self.should_stop = False
+        self.initialized = False
+        self.n_epochs = 0  # I need this to be able to control training outside .fit()
     
-    def fit(self, X, Y, X_val=None, Y_val=None, n_epochs=1, callbacks=None, metrics=[]):
+    def fit(self, X, Y, X_val=None, Y_val=None, n_epochs=1, callbacks=None, metrics=[], reinitialize=True):
+        if not self.initialized or reinitialize:
+            self._initialize(X.shape[1])
+
         history = History()
         validation_provided = X_val is not None and Y_val is not None
-        for i in range(1, n_epochs + 1):
+
+        for i in range(1, max(n_epochs, self.n_epochs) + 1):
             history_entry = {"epoch": i}
 
             if validation_provided:
@@ -98,7 +104,7 @@ class NeuralNetwork:
                     history_entry['val_' + repr(metric_obj)] = metric_obj(Y_val, self.forward_(X_val, inference=True))
 
             
-            if (self.verbose and i % self.verbose_step == 0) or self.debug:
+            if (self.verbose and (i % self.verbose_step == 0 or i == n_epochs)) or self.debug:
                 self._handle_output(history_entry, n_epochs)
             
             self.backward_(Y, y_pred)
@@ -124,6 +130,14 @@ class NeuralNetwork:
                 continue
             print(f"{k}={v:.5f}", end=' ')
         print('')
+    
+    def _initialize(self, in_dim):
+        if self.layers:
+            self.layers[0]._initialize(in_dim)
+        for i in range(1, len(self.layers)):
+            self.layers[i]._initialize(self.layers[i-1].output_dim)
+        
+        self.initialized = True
             
     
     def forward_(self, X, inference=False):
@@ -149,13 +163,24 @@ class NeuralNetwork:
                 l.b = l.b - self.learning_rate * db.T      
     
     def predict(self, X):
+        if not self.initialized:
+            raise ValueError("NNet is not trained.")
         return self.forward_(X, inference=True)
     
     def add(self, layer):
         self.layers.append(layer)
     
     def summary(self):
-        return '\n'.join([repr(l) for l in self.layers])
+        trainable_params = 0
+        total_params = 0
+        for l in self.layers:
+            print(repr(l))
+            total_params += l._n_params
+            if l.trainable:
+                trainable_params += l._n_params
+        print("=======================================================")
+        print('Total number of parameters:\t\t', total_params)
+        print("Total number of trainable params:\t", trainable_params)
     
     def _loss_mapper(self, loss):
         if type(loss) is str:

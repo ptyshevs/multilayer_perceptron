@@ -12,7 +12,7 @@ def zero_initializer(n, m):
 
 
 class Dense:
-    def __init__(self, input_dim, output_dim, activation='identity', trainable=True,
+    def __init__(self, n_units, activation='identity', trainable=True,
                  dropout_rate=0., initializer='heuristic'):
         """
         Linear -> Activation dense layer
@@ -28,13 +28,14 @@ class Dense:
                                           otherwise, samples are drawn from ~ N(0, 1) * 0.01
                             bias is always initialized to zero
         """
-        self.input_dim, self.output_dim = input_dim, output_dim
+        self.input_dim, self.output_dim = None, n_units
         self.activation = self._activation_mapper(activation)
         self.trainable = trainable
         self.dropout_rate = dropout_rate
         self.last_input = None
         
-        self._initialize(input_dim, output_dim, initializer)
+        self.initializer = initializer
+#         self._initialize(input_dim, output_dim, initializer)
     
     def forward_propagate(self, X, inference=False):
         Z = X @ self.W.T + self.b.T
@@ -65,8 +66,9 @@ class Dense:
         return A
     
     def __repr__(self):
-        return f"{self.activation} # params = {self._n_params()}"
+        return f"|Dense({self.input_dim}, {self.output_dim}, {self.activation})".ljust(20) + f"\t|\t{self._n_params}".rjust(20)
     
+    @property
     def _n_params(self):
         w = self.W.shape[0] * self.W.shape[1]
         b = self.b.shape[0]
@@ -80,13 +82,19 @@ class Dense:
         else:
             return activation
     
-    def _initialize(self, in_dim, out_dim, initializer):
+    def _initialize(self, in_dim):
+        out_dim = self.output_dim
+        self.input_dim = in_dim
+        initializer = self.initializer
+
         self.b = zero_initializer(out_dim, 1)
 
         if initializer == 'heuristic':
             if self.activation == 'relu' or self.activation == 'leaky_relu':
                 initializer = 'he'
-            elif self.activation == 'sigmoid' or self.activation == 'tanh':
+            elif self.activation == 'sigmoid':
+                initializer = 'xavier_unif'
+            elif self.activation == 'tanh':
                 initializer = 'xavier'
             else:
                 initializer = 'normal'

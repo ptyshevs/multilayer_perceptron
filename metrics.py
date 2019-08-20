@@ -20,11 +20,17 @@ def cv_score(model, scoring, X, y, cv=3, verbose=False):
     np.random.shuffle(indices)
     batch_size = len(indices) // cv
     cv_scores = []
+    is_pd = 'iloc' in dir(X)
     for i in range(cv):
         idx_train = np.concatenate([indices[:batch_size * i], indices[batch_size * (i + 1):]])
         idx_test = indices[batch_size * i: batch_size * (i + 1)]
-        X_train, y_train = X.iloc[idx_train, :], y[idx_train]
-        X_test, y_test = X.iloc[idx_test, :], y[idx_test]
+        
+        X_train = X.iloc[idx_train, :] if is_pd else X[idx_train, :]
+        X_test = X.iloc[idx_test, :] if is_pd else X[idx_test, :]
+        
+        y_train = y[idx_train]
+        y_test = y[idx_test]
+        
         model.fit(X_train, y_train)
         y_pred = model.predict(X_test)
         score = scoring(y_test, y_pred)
