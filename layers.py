@@ -37,9 +37,10 @@ class Dense:
         self._initialize(input_dim, output_dim, initializer)
     
     def forward_propagate(self, X, inference=False):
-        self.last_input = X  # Cache last input
         Z = X @ self.W.T + self.b.T
-        self.last_output = Z
+        if not inference:
+            self.last_input = X
+            self.last_output = Z
         
         A = self.activation.forward(Z)
         A = A if (inference or self.dropout_rate == 0.) else self._dropout(A)

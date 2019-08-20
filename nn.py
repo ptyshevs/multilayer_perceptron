@@ -84,9 +84,8 @@ class NeuralNetwork:
 
             if validation_provided:
                 history_entry['val_loss'] = self.loss.forward(Y_val, self.forward_(X_val))
-                
             
-            
+                        
             y_pred = self.forward_(X)
             cost = self.loss.forward(Y, y_pred)
             
@@ -96,7 +95,8 @@ class NeuralNetwork:
                 metric_obj = metric_mapper(metric)
                 history_entry[repr(metric_obj)] = metric_obj(Y, y_pred)
                 if validation_provided:
-                    history_entry['val_' + repr(metric_obj)] = metric_obj(Y, y_pred)
+                    history_entry['val_' + repr(metric_obj)] = metric_obj(Y_val, self.forward_(X_val, inference=True))
+
             
             if (self.verbose and i % self.verbose_step == 0) or self.debug:
                 self._handle_output(history_entry, n_epochs)
@@ -116,8 +116,11 @@ class NeuralNetwork:
     
     def _handle_output(self, entry, n_epochs):
         print(f"[{entry['epoch']}/{n_epochs}]: ", end='')
+        print(f"loss={entry['loss']:.5f}", end=' ')
+        if 'val_loss' in entry:
+            print(f'val_loss={entry["val_loss"]:.5f}', end=' ')
         for k, v in entry.items():
-            if k == 'epoch':
+            if k in ['epoch', 'loss', 'val_loss']:
                 continue
             print(f"{k}={v:.5f}", end=' ')
         print('')
