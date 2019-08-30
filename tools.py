@@ -1,4 +1,6 @@
 import numpy as np
+import pickle as pcl
+
 
 def one_hot_encoder(y):
     """
@@ -52,4 +54,11 @@ def train_test_split(*args, test_size=.25, random_state=None):
         res.append(arg[train_indices, :])
         res.append(arg[test_indices, :])
     return res
-        
+
+def save(self, path):
+    with open(path, 'wb') as fp:
+        fp.write(pcl.dumps(self))
+    
+def load(self, path):
+    with open(path, 'rb') as fp:
+        self = pcl.loads(fp.read())

@@ -3,6 +3,7 @@ from loss import *
 from layers import *
 from activations import *
 from metrics import metric_mapper
+import pickle
 
 class History:
     def __init__(self):
@@ -79,7 +80,7 @@ class GradientDescent:
         return theta - self.learning_rate * grad
 
 class NeuralNetwork:
-    def __init__(self, loss, learning_rate=0.05, verbose=False, verbose_step=100, debug=False):
+    def __init__(self, loss=None, learning_rate=0.05, verbose=False, verbose_step=100, debug=False):
         """
         Class containing Neural Network architecture: Layers and Optimizer
         

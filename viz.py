@@ -16,17 +16,18 @@ def plot_history(h):
         else:
             plots.append((k,))
 
-    f,ax  = plt.subplots(nrows=len(plots), figsize=(10, 10))
+    n_plots = len(plots)
+    f,ax  = plt.subplots(nrows=n_plots, figsize=(6 * n_plots, 5 * n_plots), squeeze=False)
 
     for i, plot in enumerate(plots):
         label = plot[0]
-        ax[i].plot(x_ax, h[label], label=label)
+        ax[i, 0].plot(x_ax, h[label], label=label)
         if len(plot) > 1:
             val_label = plot[1]
-            ax[i].plot(x_ax, h[val_label], label=val_label)
-        ax[i].set_xlabel('epoch')
-        ax[i].set_ylabel(label)
-        ax[i].set_title(label)
+            ax[i, 0].plot(x_ax, h[val_label], label=val_label)
+        ax[i, 0].set_xlabel('epoch')
+        ax[i, 0].set_ylabel(label)
+        ax[i, 0].set_title(label)
         if len(plot) > 1:
-            ax[i].legend()
+            ax[i, 0].legend()
     plt.show()
