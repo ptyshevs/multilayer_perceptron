@@ -34,6 +34,9 @@ def normalize(X):
     return (X - X.mean(axis=0)) / X.std(axis=0)
 
 def train_test_split(*args, test_size=.25, random_state=None):
+    """
+    Arguments are shuffled (consistently, using indices) and then split into train-test parts.
+    """
     if random_state is not None:
         np.random.seed(random_state)
     n = len(args[0])

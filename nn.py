@@ -6,13 +6,33 @@ from metrics import metric_mapper
 
 class History:
     def __init__(self):
-        self.history = []
+        """
+        History object contains all the necessary information about the training process
+        """
+        self.history = dict()
     
     def add(self, entry):
-        self.history.append(entry)
+        for (k, v) in entry.items():
+            if k in self.history:
+                self.history[k].append(v)
+            else:
+                self.history[k] = [v]
     
     def get(self, idx):
         return self.history[idx]
+    
+    def __iter__(self):
+        return iter(self.history)
+
+    def __getitem__(self, k):
+        return self.history[k]
+    
+    @property
+    def keys(self):
+        return self.history.keys()
+    
+    def __repr__(self):
+        return 'History:' + '|'.join([str(k) for k in self.keys])
 
 class Optimizer:
     def __init__(self):
@@ -99,9 +119,9 @@ class NeuralNetwork:
             
             for metric in metrics:
                 metric_obj = metric_mapper(metric)
-                history_entry[repr(metric_obj)] = metric_obj(Y, y_pred)
+                history_entry[metric_obj.__name__] = metric_obj(Y, y_pred)
                 if validation_provided:
-                    history_entry['val_' + repr(metric_obj)] = metric_obj(Y_val, self.forward_(X_val, inference=True))
+                    history_entry['val_' + metric_obj.__name__] = metric_obj(Y_val, self.forward_(X_val, inference=True))
 
             
             if (self.verbose and (i % self.verbose_step == 0 or i == n_epochs)) or self.debug:
@@ -191,6 +211,6 @@ class NeuralNetwork:
 
 if __name__ == '__main__':
     nn = NeuralNetwork('crossentropy')
-    nn.add(Layer(1, 2, activation='sigmoid'))
-    nn.add(Layer(2, 1, activation='linear'))
-    print(nn.summary())
+    nn.add(Layer(2, activation='sigmoid'))
+    nn.add(Layer(1, activation='linear'))
+    nn.summary()
