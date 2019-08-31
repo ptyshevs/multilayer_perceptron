@@ -41,8 +41,11 @@ losses = {'mse':MSE,
           'binary_crossentropy': BinaryCrossEntropy,
           'crossentropy': CrossEntropy}
 
-def loss_to_obj(name):
-    if name in losses:
-        return losses[name]()
+def loss_mapper(loss):
+    if type(loss) is str:
+        if loss in losses:
+            return losses[loss]()
+        else:
+            raise ValueError(f"Loss is not recognized: {loss}")
     else:
-        raise ValueError(f"Loss is not recognized: {name}")
+        return loss

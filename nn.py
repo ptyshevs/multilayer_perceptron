@@ -3,6 +3,7 @@ from loss import *
 from layers import *
 from activations import *
 from metrics import metric_mapper
+from optim import optimizer_mapper
 import pickle
 
 class History:
@@ -35,146 +36,134 @@ class History:
     def __repr__(self):
         return 'History:' + '|'.join([str(k) for k in self.keys])
 
-class Optimizer:
-    def __init__(self):
-        """ Class responsible for training process """
-        pass
-
-class Callback:
-    def __init__(self):
-        pass
-
-class HistoryCallback(Callback):
-    def __init__(self):
-        pass
-
-class ImmediateCallback(Callback):
-    def __init__(self):
-        pass
-
-class EarlyStopping(HistoryCallback):
-    def __init__(self, patience=6, monitor='loss'):
-        self.patience = patience
-        self.cnt = 0
-        self.prev_val = None
-        self.monitor = monitor
-        
-    def restart(self):
-        self.prev_val = None
-        self.cnt = 0
-    
-    def __call__(self, history_entry, model):
-        val = history_entry[self.monitor]
-        has_improved = False
-        if self.monitor.endswith('loss'):
-            if self.prev_val is None or self.prev_val > val:
-                has_improved = True
-        else:
-            if self.prev_val is None or self.prev_val < val:
-                has_improved = True
-        
-        if has_improved:
-            self.prev_val = val
-            self.cnt = 0
-        else:
-            self.cnt += 1
-        
-        stop = False
-        if self.cnt >= self.patience:
-            print("Early stopping!")
-            model.should_stop = True
-    
-class GradientDescent:
-    def __init__(self, learning_rate=.01):
-        self.learning_rate = learning_rate
-    
-    def update(self, theta, grad):
-        return theta - self.learning_rate * grad
 
 class NeuralNetwork:
-    def __init__(self, loss=None, learning_rate=0.05, verbose=False, verbose_step=100, debug=False):
+    def __init__(self, loss=None, optimizer=None, verbose=False, verbose_step=100, debug=False):
         """
         Class containing Neural Network architecture: Layers and Optimizer
         
         @param learning_rate: scale factor for parameters gradient update
         @param loss: loss function to optimize
+        @param optimizer: heurisitic for gradient descent
         @param verbose: if True, learning process will output some statistics
         """
         self.layers = []
-        # Optimizer stuff
-        self.learning_rate = learning_rate
-        self.loss = self._loss_mapper(loss)
+        self.loss = loss_mapper(loss)
+        self.optim = optimizer_mapper(optimizer)
         self.verbose = verbose
         self.verbose_step = verbose_step
         self.debug = debug
+
         self.should_stop = False
         self.initialized = False
-        self.n_epochs = 0  # I need this to be able to control training outside .fit()
-    
-    def fit(self, X, Y, X_val=None, Y_val=None, n_epochs=1, callbacks=None, metrics=[], reinitialize=True):
-        if not self.initialized or reinitialize:
-            self._initialize(X.shape[1])
 
-        history = History()
-        validation_provided = X_val is not None and Y_val is not None
+        self.n_epochs = 0
+    
+    def _pre_fit(self, train_params):
+        self.should_stop = False
+        n_samples, n_features = train_params['X'].shape
+        if train_params['X_val'] is not None:
+            val_features = train_params['X_val'].shape[1]
+            assert n_features == val_features
+        
+        if self.loss is None:
+            print("Loss is not specified")
+            self.should_stop = True
+
+        if self.optim is None:
+            print("Optimizer is not specified")
+            self.should_stop = True
+        
+        if not self.initialized or train_params['reinitialize']:
+            self._initialize(n_features)
+        
+        if train_params['callbacks']:
+            for cb in train_params['callbacks']:
+                cb.restart()
+        
+        if train_params['batch_size'] == 0:
+            train_params['batch_size'] = n_samples
+        
+        train_params['val'] = train_params['X_val'] is not None and train_params['Y_val'] is not None
+        
+        mapped_metrics = []
+        for m in train_params['metrics']:
+            mapped_metrics.append(metric_mapper(m))
+        train_params['metrics'] = mapped_metrics
+
+        
+    def _record_history_entry(self, params):
+        entry = {"epoch": params['epoch']}
+        
+        X, Y, X_val, Y_val = params['X'], params['Y'], params['X_val'], params['Y_val']
+        
+        Y_pred = self.forward_(X, inference=True)
+        Y_val_pred = None
+        if params['val']:
+            Y_val_pred = self.forward_(X_val, inference=True)
+        
+        entry['loss'] = self.loss.forward(Y, Y_pred)
+        if params['val']:
+            entry['val_loss'] = self.loss.forward(Y_val, Y_val_pred)
+        
+        for metric in params['metrics']:
+            entry[metric.__name__] = metric(Y, Y_pred)
+            if params['val']:
+                entry['val_' + metric.__name__] = metric(Y_val, Y_val_pred)
+        return entry
+        
+    def _on_epoch_end(self, params):
+        entry = self._record_history_entry(params)
+        
+        if params['callbacks']:
+            for cb in params['callbacks']:
+                cb(entry, self)
+
+        params['history'].add(entry)
+        
+        epoch = entry['epoch']
+        n_epochs = params['n_epochs']
+        
+        if (self.verbose and (epoch % self.verbose_step == 0 or epoch == n_epochs)) or self.debug:
+            self._handle_output(entry, n_epochs)
+
+
+    def fit(self, X, Y, X_val=None, Y_val=None, n_epochs=1, batch_size=0, 
+            callbacks=None, metrics=[], reinitialize=True):
+
+        params = {'batch_size': batch_size, 'callbacks': callbacks, 'reinitialize': reinitialize,
+                        'metrics': metrics, 'callbacks': callbacks, 'history': History(),
+                        'X': X, 'Y': Y, 'X_val': X_val, 'Y_val': Y_val, 'n_epochs': n_epochs}
+
+        self._pre_fit(params)
+        
+        batch_size = params['batch_size']
+        metrics = params['metrics']
+
+        n_steps = len(X) // batch_size
+        if len(X) % batch_size != 0:  # There is a last batch that is not full
+            n_steps += 1
 
         for i in range(1, max(n_epochs, self.n_epochs) + 1):
-            history_entry = {"epoch": i}
-
-            if validation_provided:
-                history_entry['val_loss'] = self.loss.forward(Y_val, self.forward_(X_val))
-            
-                        
-            y_pred = self.forward_(X)
-            cost = self.loss.forward(Y, y_pred)
-            
-            history_entry["loss"] = cost
-            
-            for metric in metrics:
-                metric_obj = metric_mapper(metric)
-                history_entry[metric_obj.__name__] = metric_obj(Y, y_pred)
-                if validation_provided:
-                    history_entry['val_' + metric_obj.__name__] = metric_obj(Y_val, self.forward_(X_val, inference=True))
-
-            
-            if (self.verbose and (i % self.verbose_step == 0 or i == n_epochs)) or self.debug:
-                self._handle_output(history_entry, n_epochs)
-            
-            self.backward_(Y, y_pred)
-            
-            if callbacks:
-                for cb in callbacks:
-                    if issubclass(type(cb), HistoryCallback):
-                        cb(history_entry, self)
-                    else:
-                        cb(Y, y_pred)
-            
-            history.add(history_entry)
-            
             if self.should_stop:
                 break
+            start_idx, end_idx = 0, batch_size
+            params['epoch'] = i
+            for step in range(n_steps):
+                
+                X_batch = X[start_idx:end_idx, :]
+                Y_batch = Y[start_idx:end_idx, :]
+                
+                y_pred = self.forward_(X_batch)
 
-        return history
-    
-    def _handle_output(self, entry, n_epochs):
-        print(f"[{entry['epoch']}/{n_epochs}]: ", end='')
-        print(f"loss={entry['loss']:.5f}", end=' ')
-        if 'val_loss' in entry:
-            print(f'val_loss={entry["val_loss"]:.5f}', end=' ')
-        for k, v in entry.items():
-            if k in ['epoch', 'loss', 'val_loss']:
-                continue
-            print(f"{k}={v:.5f}", end=' ')
-        print('')
-    
-    def _initialize(self, in_dim):
-        if self.layers:
-            self.layers[0]._initialize(in_dim)
-        for i in range(1, len(self.layers)):
-            self.layers[i]._initialize(self.layers[i-1].output_dim)
-        
-        self.initialized = True
-            
+                grads = self.backward_(Y_batch, y_pred)
+                self._optimize(grads)
+                
+                start_idx += batch_size
+                end_idx += batch_size
+            self._on_epoch_end(params)
+
+        return params['history']
     
     def forward_(self, X, inference=False):
         """
@@ -186,17 +175,20 @@ class NeuralNetwork:
     
     def backward_(self, Y, Y_pred):
         dA = self.loss.backward(Y, Y_pred).T
-        grads = {}
+        grads = dict()
         for i, l in enumerate(reversed(self.layers)):
-            dA, dW, db = l.backward_propagate(dA)
-            grads[l] = dW, db
-        
-        # Optimization step
+            dA, *dParams = l.backward_propagate(dA)
+            grads[l] = dParams
+        return grads
+    
+    
+    def _optimize(self, grads):
         for i, l in enumerate(reversed(self.layers)):
-            if l.trainable:
-                dW, db = grads[l]
-                l.W = l.W - self.learning_rate * dW.T
-                l.b = l.b - self.learning_rate * db.T      
+            if not l.trainable:
+                continue
+            dW, db = grads[l]
+            l.W = self.optim(l.W, dW.T)
+            l.b = self.optim(l.b, db.T)
     
     def predict(self, X):
         if not self.initialized:
@@ -217,12 +209,23 @@ class NeuralNetwork:
         print("=======================================================")
         print('Total number of parameters:\t\t', total_params)
         print("Total number of trainable params:\t", trainable_params)
+        
+    def _handle_output(self, entry, n_epochs):
+        print(f"[{entry['epoch']}/{n_epochs}]: ", end='')
+        for k, v in entry.items():
+            if k == 'epoch':
+                continue
+            print(f"{k}={v:.5f}", end=' ')
+        print('')
     
-    def _loss_mapper(self, loss):
-        if type(loss) is str:
-            return loss_to_obj(loss)
-        else:
-            return loss
+    def _initialize(self, in_dim):
+        if self.layers:
+            self.layers[0]._initialize(in_dim)
+        for i in range(1, len(self.layers)):
+            self.layers[i]._initialize(self.layers[i-1].output_dim)
+        
+        self.initialized = True
+        
         
 
 if __name__ == '__main__':
