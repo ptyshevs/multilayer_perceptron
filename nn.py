@@ -34,7 +34,7 @@ class History:
         return self.history.keys()
     
     def __repr__(self):
-        return 'History:' + '|'.join([str(k) for k in self.keys])
+        return 'History: ' + '|'.join([str(k) for k in self.keys])
 
 
 class NeuralNetwork:
@@ -59,13 +59,35 @@ class NeuralNetwork:
 
         self.n_epochs = 0
     
-    def _pre_fit(self, train_params):
+    def _pre_fit(self, params):
         self.should_stop = False
-        n_samples, n_features = train_params['X'].shape
-        if train_params['X_val'] is not None:
-            val_features = train_params['X_val'].shape[1]
-            assert n_features == val_features
         
+        X, Y, X_val, Y_val = params['X'], params['Y'], params['X_val'], params['Y_val']
+        params['val'] = params['X_val'] is not None and params['Y_val'] is not None
+
+        if len(X.shape) < 2:
+            X = X.reshape(-1, 1)
+        if len(Y.shape) < 2:
+            Y = Y.reshape(-1, 1)
+        if params['val']:
+            if len(X_val.shape) < 2:
+                X_val = X_val.reshape(-1, 1)
+            if len(Y_val.shape) < 2:
+                Y_val = Y_val.reshape(-1, 1)
+        
+        params['X'] = X
+        params['Y'] = Y
+        params['X_val'] = X_val
+        params['Y_val'] = Y_val
+        
+        n_samples, *n_features = X.shape
+        if X_val is not None:
+            val_samples, *val_features = X_val.shape
+            assert n_features == val_features
+
+        if len(n_features) == 1:
+            n_features = n_features[0]
+
         if self.loss is None:
             print("Loss is not specified")
             self.should_stop = True
@@ -74,22 +96,20 @@ class NeuralNetwork:
             print("Optimizer is not specified")
             self.should_stop = True
         
-        if not self.initialized or train_params['reinitialize']:
+        if not self.initialized or params['reinitialize']:
             self._initialize(n_features)
         
-        if train_params['callbacks']:
-            for cb in train_params['callbacks']:
+        if params['callbacks']:
+            for cb in params['callbacks']:
                 cb.restart()
         
-        if train_params['batch_size'] == 0:
-            train_params['batch_size'] = n_samples
-        
-        train_params['val'] = train_params['X_val'] is not None and train_params['Y_val'] is not None
+        if params['batch_size'] == 0:
+            params['batch_size'] = n_samples
         
         mapped_metrics = []
-        for m in train_params['metrics']:
+        for m in params['metrics']:
             mapped_metrics.append(metric_mapper(m))
-        train_params['metrics'] = mapped_metrics
+        params['metrics'] = mapped_metrics
 
         
     def _record_history_entry(self, params):
@@ -136,7 +156,7 @@ class NeuralNetwork:
                         'X': X, 'Y': Y, 'X_val': X_val, 'Y_val': Y_val, 'n_epochs': n_epochs}
 
         self._pre_fit(params)
-        
+        X, Y, X_val, Y_val = params['X'], params['Y'], params['X_val'], params['Y_val']
         batch_size = params['batch_size']
         metrics = params['metrics']
 
@@ -151,8 +171,8 @@ class NeuralNetwork:
             params['epoch'] = i
             for step in range(n_steps):
                 
-                X_batch = X[start_idx:end_idx, :]
-                Y_batch = Y[start_idx:end_idx, :]
+                X_batch = X[start_idx:end_idx, ...]
+                Y_batch = Y[start_idx:end_idx, ...]
                 
                 y_pred = self.forward_(X_batch)
 

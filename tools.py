@@ -63,8 +63,8 @@ def train_test_split(*args, test_size=.25, random_state=None):
     
     res = []
     for arg in args:
-        res.append(arg[train_indices, :])
-        res.append(arg[test_indices, :])
+        res.append(arg[train_indices, ...])
+        res.append(arg[test_indices, ...])
     return res
 
 def save(model, path):

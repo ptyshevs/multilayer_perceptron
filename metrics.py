@@ -39,7 +39,7 @@ metrics_available = [accuracy, mean_squared_error, rmse]
 def metric_mapper(metric):
     if type(metric) is str:
         for m in metrics_available:
-            if repr(m) == metric:
+            if m.__name__ == metric:
                 return m
     else:
         return metric

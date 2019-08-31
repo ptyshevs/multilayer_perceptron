@@ -12,8 +12,8 @@ from tools import one_hot_encoder, normalize
 
 def build_model():
     m = NeuralNetwork(n_iterations=900)
-    m.add(Layer(11, 11, activation=Tanh()))
-    m.add(Layer(11, 1))
+    m.add(Layer(11, activation=Tanh()))
+    m.add(Layer(1))
     return m
 
 def test_wine_rmse(rmse_threshold=660):

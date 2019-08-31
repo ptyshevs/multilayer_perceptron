@@ -10,8 +10,20 @@ def uniform_initializer(n, m, low=0, high=1):
 def zero_initializer(n, m):
     return np.zeros((n, m))
 
+class Layer:
+    def __init__(self, trainable=True):
+        self.trainable = trainable
 
-class Dense:
+    def forward_propagate(self):
+        pass
+    
+    def backward_propagate(self):
+        pass
+    
+    def _initialize(self, *args, **kwargs):
+        pass
+
+class Dense(Layer):
     def __init__(self, n_units, activation='identity', trainable=True,
                  dropout_rate=0., initializer='heuristic'):
         """
@@ -117,7 +129,7 @@ class Dense:
             raise ValueError(f"Unrecognized initialization scheme {initializer}")
             
 
-class Dropout:
+class Dropout(Layer):
     def __init__(self, drop_rate=.5, correct_magnitude=True):
         self.keep_prob = 1 - drop_rate
         self.correct_magnitude = correct_magnitude
@@ -133,3 +145,21 @@ class Dropout:
     
     def backward_propagate(self, dA):
         return dA
+
+class Flatten(Layer):
+    def __init__(self, trainable=False):
+        self.trainable = trainable
+        self.input_dim, self.output_dim = None, None
+
+    def forward_propagate(self, X, inference=False):
+        return X.reshape((len(X), -1))
+
+    def backward_propagate(self, dA):
+        return dA
+    
+    def _initialize(self, in_dim):
+        self.input_dim = in_dim
+        out_dim = 1
+        for dim in in_dim:
+            out_dim *= dim
+        self.output_dim = out_dim
