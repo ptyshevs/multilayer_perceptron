@@ -10,6 +10,33 @@ def uniform_initializer(n, m, low=0, high=1):
 def zero_initializer(n, m):
     return np.zeros((n, m))
 
+
+class L1Regularizer:
+    def __init__(self, lamd=.01):
+        self.lamd = lamd
+    
+    def __call__(self, M):
+        # Gradient only
+        return self.lamd * np.where(M > 0, 1.0, -1.0)
+
+class L2Regularizer:
+    def __init__(self, lamd=.01):
+        self.lamd = lamd
+    
+    def __call__(self, M):
+        # This is used only in back-propagation, so here is the gradient
+        return self.lamd * M
+
+regularizers_map = {'l1': L1Regularizer(), 'l2': L2Regularizer()}
+    
+def regularizer_mapper(regularizer):
+    if type(regularizer) is str:
+        if regularizer in regularizers_map:
+            return regularizers_map[regularizer]
+        else:
+            raise ValueError("Regularizer is unrecognized:", regularizer)
+    return regularizer
+
 class Layer:
     def __init__(self, trainable=True):
         self.trainable = trainable
@@ -25,7 +52,7 @@ class Layer:
 
 class Dense(Layer):
     def __init__(self, n_units, activation='identity', trainable=True,
-                 dropout_rate=0., initializer='heuristic'):
+                 dropout_rate=0., initializer='heuristic', weights_regularizer=None, bias_regularizer=None):
         """
         Linear -> Activation dense layer
         
@@ -47,8 +74,9 @@ class Dense(Layer):
         self.last_input = None
         
         self.initializer = initializer
-#         self._initialize(input_dim, output_dim, initializer)
-    
+        self.weights_regularizer = weights_regularizer
+        self.bias_regularizer = bias_regularizer
+
     def forward_propagate(self, X, inference=False):
         Z = X @ self.W.T + self.b.T
         if not inference:
@@ -60,14 +88,16 @@ class Dense(Layer):
         return A
         
     def backward_propagate(self, dA):
-#         if self.activation is not None:
-#             dZ = self.activation.backward(self.last_output) * dA.T
-#         else:
-#             dZ = dA.T
+        # Todo: fix dropout back-propagation: dA should have the same mask applied and scaled by the same keep_prob
         dZ = self.activation.backward(self.last_output) * dA.T
-        dW = self.last_input.T @ dZ / len(dZ)
+        m = len(dZ)
+        dW = self.last_input.T @ dZ / m
+        if self.weights_regularizer:
+            dW += self.weights_regularizer(self.W.T) / m
         db = np.mean(dZ, axis=0, keepdims=True)
-        dA_prev = (self.W.T @ dZ.T)
+        if self.bias_regularizer:
+            db += self.bias_regularizer(self.b) / m
+        dA_prev = self.W.T @ dZ.T
         return dA_prev, dW, db
     
     def _dropout(self, A, correct_magnitude=True):
