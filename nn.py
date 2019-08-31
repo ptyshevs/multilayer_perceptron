@@ -211,7 +211,7 @@ class NeuralNetwork:
         print("Total number of trainable params:\t", trainable_params)
         
     def _handle_output(self, entry, n_epochs):
-        print(f"[{entry['epoch']}/{n_epochs}]: ", end='')
+        print(f"[{entry['epoch']:5}/{n_epochs}]: ", end='')
         for k, v in entry.items():
             if k == 'epoch':
                 continue
