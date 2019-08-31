@@ -40,7 +40,19 @@ class Optimizer:
         """ Class responsible for training process """
         pass
 
-class EarlyStopping:
+class Callback:
+    def __init__(self):
+        pass
+
+class HistoryCallback(Callback):
+    def __init__(self):
+        pass
+
+class ImmediateCallback(Callback):
+    def __init__(self):
+        pass
+
+class EarlyStopping(HistoryCallback):
     def __init__(self, patience=6, monitor='loss'):
         self.patience = patience
         self.cnt = 0
@@ -51,9 +63,8 @@ class EarlyStopping:
         self.prev_val = None
         self.cnt = 0
     
-    def __call__(self, history, model):
-        last_entry = history[-1]
-        val = last_entry[self.monitor]
+    def __call__(self, history_entry, model):
+        val = history_entry[self.monitor]
         has_improved = False
         if self.monitor.endswith('loss'):
             if self.prev_val is None or self.prev_val > val:
@@ -70,6 +81,7 @@ class EarlyStopping:
         
         stop = False
         if self.cnt >= self.patience:
+            print("Early stopping!")
             model.should_stop = True
     
 class GradientDescent:
@@ -132,7 +144,10 @@ class NeuralNetwork:
             
             if callbacks:
                 for cb in callbacks:
-                    cb(Y, y_pred)
+                    if issubclass(type(cb), HistoryCallback):
+                        cb(history_entry, self)
+                    else:
+                        cb(Y, y_pred)
             
             history.add(history_entry)
             

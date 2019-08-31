@@ -1,6 +1,18 @@
 import numpy as np
 import pickle as pcl
 
+def binary_encoder(y):
+    """
+    For binary classification, use single binary feature. Otherwise, send to OHE.
+    """
+    y_unique = np.unique(y)
+    if len(y_unique) != 2:
+        print(f"There are {len(y_unique)} unique labels, using OHE")
+        return one_hot_encoder(y)
+    M = np.zeros((len(y), 1))
+    M[y == y_unique[-1]] = 1
+    label_map = {i:label for i, label in enumerate(y_unique)}
+    return M, label_map
 
 def one_hot_encoder(y):
     """
@@ -55,10 +67,10 @@ def train_test_split(*args, test_size=.25, random_state=None):
         res.append(arg[test_indices, :])
     return res
 
-def save(self, path):
+def save(model, path):
     with open(path, 'wb') as fp:
-        fp.write(pcl.dumps(self))
+        fp.write(pcl.dumps(model))
     
-def load(self, path):
+def load(path):
     with open(path, 'rb') as fp:
-        self = pcl.loads(fp.read())
+        return pcl.loads(fp.read())
