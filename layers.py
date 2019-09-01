@@ -224,30 +224,39 @@ class BatchNorm(Layer):
         self.sigmas = None
     
     def forward_propagate(self, X, inference=False):
-        Z = (X - X.mean(axis=0)) / (X.std(axis=0) + self.eps)
-        A = self.gammas * Z + self.betas
-        if not inference:
+        if inference:
+            X = (X - self.mus) / self.sigmas
+        else:
             self.last_input = X
-            self.last_output = A
             self.mus = self.beta * self.mus + (1 - self.beta) * X.mean(axis=0)
             self.sigmas = self.beta * self.sigmas + (1 - self.beta) * X.std(axis=0)
+
+        Z = (X - X.mean(axis=0)) / (X.std(axis=0) + self.eps)
+        A = Z @ self.gammas + self.betas
+        
+        if not inference:
+            self.last_output = A
         return A
     
     def backward_propagate(self, dA):
-        dZ = dA.T
+        dZ = dA
         m = len(dZ)
+        print(f'input_shape {self.last_input.shape} | dZ.shape {dZ.shape}')
         dgamma = self.last_input.T @ dZ / m
-        dbeta = np.mean(dZ, axis=0, keepdims=True)
-        dA_prev = self.gammas @ dZ.T
+        print(f'dgamma.shape= {dgamma.shape}')
+        dbeta = np.sum(dZ, axis=0, keepdims=True)
+        print('self.gammas.shape=', self.gammas.shape)
+        dA_prev = dZ @ self.gammas.T
         return dA_prev, dgamma.T, dbeta.T
     
     def _initialize(self, in_dim):
+        print('in_dim=', in_dim)
         self.input_dim = in_dim
         self.output_dim = in_dim
-        self.gammas = np.ones_like(in_dim)
-        self.betas = np.zeros_like(in_dim)
+        self.gammas = np.ones((*in_dim[1:], 1))
+        self.betas = np.zeros_like((*in_dim[1:], 1))
 
-        self.sigmas = np.ones_like(in_dim)
-        self.mus = np.zeros_like(in_dim)
+        self.sigmas = np.ones_like((*in_dim[1:], 1))
+        self.mus = np.zeros_like((*in_dim[1:], 1))
 
         self.params = [self.gammas, self.betas]
