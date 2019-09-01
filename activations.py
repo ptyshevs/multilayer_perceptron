@@ -61,6 +61,9 @@ class Sigmoid(Activation):
     def _sigmoid(self, X):
         return 1 / ((1 + np.exp(-X)) + self.bias)
     
+    def _sigmoid_v2(self, X):  # More numerically stable, but also more computationally-heavy
+        return np.where(X >= 0, 1 / ((1 + np.exp(-X)) + self.bias), np.exp(X) / (1 + np.exp(X)))
+    
     def __repr__(self):
         return 'sigmoid'
 

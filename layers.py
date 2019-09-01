@@ -39,7 +39,10 @@ def regularizer_mapper(regularizer):
 
 class Layer:
     def __init__(self, trainable=True):
+        self.input_dim, self.output_dim = None, None
+        
         self.trainable = trainable
+        self.params = []
 
     def forward_propagate(self):
         pass
@@ -49,6 +52,13 @@ class Layer:
     
     def _initialize(self, *args, **kwargs):
         pass
+    
+    @property
+    def _n_params(self):
+        return sum([p.size for p in self.params])
+    
+    def __repr__(self):
+        return self.__class__.__name__
 
 class Dense(Layer):
     def __init__(self, n_units, activation='identity', trainable=True,
@@ -165,6 +175,7 @@ class Dense(Layer):
 
 class Dropout(Layer):
     def __init__(self, drop_rate=.5, correct_magnitude=True):
+        super().__init__()
         self.keep_prob = 1 - drop_rate
         self.correct_magnitude = correct_magnitude
     
@@ -178,18 +189,21 @@ class Dropout(Layer):
         return Z
     
     def backward_propagate(self, dA):
-        return dA
+        return (dA,)
+
+    def _initialize(self, in_dim):
+        self.input_dim = in_dim
+        self.output_dim = in_dim
 
 class Flatten(Layer):
     def __init__(self, trainable=False):
-        self.trainable = trainable
-        self.input_dim, self.output_dim = None, None
+        super().__init__()
 
     def forward_propagate(self, X, inference=False):
         return X.reshape((len(X), -1))
 
     def backward_propagate(self, dA):
-        return dA
+        return (dA, )
     
     def _initialize(self, in_dim):
         self.input_dim = in_dim

@@ -20,8 +20,7 @@ class AnnealingLR(LRScheduler):
         self.a = a
     
     def __call__(self, t=0):
-        self.lr = self.lr * self.a
-        return self.lr
+        return 1 / (1 + a * t) * self.lr
 
 class CircluarLR(LRScheduler):
     def __init__(self, lr=.05, scale=.025, periodic_fn=np.cos):
@@ -106,7 +105,7 @@ class RMSProp(Optimizer):
             layer.params[i] -= grad_scale * params_grad[i]
             
 class Adam(Optimizer):
-    def __init__(self, lr=.05, beta1=.9, beta2=.999, eps=1e-9):
+    def __init__(self, lr=.01, beta1=.9, beta2=.999, eps=1e-8):
         self.lr = learning_rate_mapper(lr)
         self.beta1 = beta1
         self.beta2 = beta2
