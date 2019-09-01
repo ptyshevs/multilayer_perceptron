@@ -3,7 +3,7 @@ from loss import *
 from layers import *
 from activations import *
 from metrics import metric_mapper
-from optim import optimizer_mapper
+from optim import *
 import pickle
 
 class History:
@@ -150,7 +150,7 @@ class NeuralNetwork:
 
     def fit(self, X, Y, X_val=None, Y_val=None, n_epochs=1, batch_size=0, 
             callbacks=None, metrics=[], reinitialize=True):
-
+        
         params = {'batch_size': batch_size, 'callbacks': callbacks, 'reinitialize': reinitialize,
                         'metrics': metrics, 'callbacks': callbacks, 'history': History(),
                         'X': X, 'Y': Y, 'X_val': X_val, 'Y_val': Y_val, 'n_epochs': n_epochs}
@@ -163,7 +163,8 @@ class NeuralNetwork:
         n_steps = len(X) // batch_size
         if len(X) % batch_size != 0:  # There is a last batch that is not full
             n_steps += 1
-
+        
+        t = 0
         for i in range(1, max(n_epochs, self.n_epochs) + 1):
             if self.should_stop:
                 break
@@ -177,10 +178,12 @@ class NeuralNetwork:
                 y_pred = self.forward_(X_batch)
 
                 grads = self.backward_(Y_batch, y_pred)
-                self._optimize(grads)
+                self._optimize(grads, t)
                 
                 start_idx += batch_size
                 end_idx += batch_size
+                
+                t += 1
             self._on_epoch_end(params)
 
         return params['history']
@@ -202,13 +205,12 @@ class NeuralNetwork:
         return grads
     
     
-    def _optimize(self, grads):
+    def _optimize(self, grads, t):
         for i, l in enumerate(reversed(self.layers)):
             if not l.trainable:
                 continue
-            dW, db = grads[l]
-            l.W = self.optim(l.W, dW.T)
-            l.b = self.optim(l.b, db.T)
+            # Don't remove t from function call - it is used for learning rate scheduling
+            self.optim(l, grads[l], t=t)
     
     def predict(self, X):
         if not self.initialized:

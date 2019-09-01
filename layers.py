@@ -76,6 +76,7 @@ class Dense(Layer):
         self.initializer = initializer
         self.weights_regularizer = weights_regularizer
         self.bias_regularizer = bias_regularizer
+        self.params = list()
 
     def forward_propagate(self, X, inference=False):
         Z = X @ self.W.T + self.b.T
@@ -98,7 +99,7 @@ class Dense(Layer):
         if self.bias_regularizer:
             db += self.bias_regularizer(self.b) / m
         dA_prev = self.W.T @ dZ.T
-        return dA_prev, dW, db
+        return dA_prev, dW.T, db.T
     
     def _dropout(self, A, correct_magnitude=True):
         mask = np.random.rand(*A.shape) > self.dropout_rate
@@ -157,6 +158,9 @@ class Dense(Layer):
             self.W = uniform_initializer(out_dim, in_dim, -np.sqrt(3),  np.sqrt(3))
         else:
             raise ValueError(f"Unrecognized initialization scheme {initializer}")
+        
+        self.params.append(self.W)
+        self.params.append(self.b)
             
 
 class Dropout(Layer):

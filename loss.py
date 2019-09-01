@@ -43,8 +43,8 @@ losses = {'mse':MSE,
 
 def loss_mapper(loss):
     if type(loss) is str:
-        if loss in losses:
-            return losses[loss]()
+        if loss.lower() in losses:
+            return losses[loss.lower()]()
         else:
             raise ValueError(f"Loss is not recognized: {loss}")
     else:
