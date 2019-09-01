@@ -19,7 +19,7 @@ class AnnealingLR(LRScheduler):
         self.lr = lr
         self.a = a
     
-    def __call__(self, t=0:
+    def __call__(self, t=0):
         self.lr = self.lr * self.a
         return self.lr
 
@@ -72,24 +72,79 @@ class MomentumGradientDescent(Optimizer):
     
     def __call__(self, layer, params_grad, **kwargs):
         if layer not in self.moments:
-            self.moments[layer] = []
-            for param in layer.params:
-                self.moments[layer].append(np.zeros_like(param))
-        
+            self.moments[layer] = [np.zeros_like(p) for p in payer.params]
+        t = kwargs['t']
+        grad_scale = self.learning_rate(t)
+        if self.bias_correction:
+            grad_scale /= (1 - self.beta ** (1 + t))
         for i in range(len(layer.params)):
             self.moments[layer][i] = self.beta * self.moments[layer][i] + (1 - self.beta) * params_grad[i]
-            layer.params[i] -= self.learning_rate(kwargs['t']) * self.moments[layer][i]
-            if self.bias_correction:
-                layer.params[i] /= (1 - self.beta ** (1 + kwargs['t']))
-        
+            # w = w - a*v
+            # b = b - a*v
+
+            layer.params[i] -= grad_scale * self.moments[layer][i]
+
+class RMSProp(Optimizer):
+    def __init__(self, lr=.05, beta=.9, eps=1e-9):
+        self.lr = learning_rate_mapper(lr)
+        self.beta = beta
+        self.moments = dict()
+        self.eps = eps
     
-optimizers_map = {'gd': GradientDescent(), 'sgd': GradientDescent(),
-                  'momentum_gd': MomentumGradientDescent()}
+    def __call__(self, layer, params_grad, **kwargs):
+        if layer not in self.moments:
+            self.moments[layer] = [np.zeros_like(p) for p in layer.params]
+            
+        t = kwargs['t']
+        lr = self.lr(t)
+        for i, p in enumerate(layer.params):
+            self.moments[layer][i] *= self.beta
+            self.moments[layer][i] += (1 - self.beta) * params_grad[i] ** 2
+            
+            grad_scale = lr / np.sqrt(self.moments[layer][i] + self.eps)
+            
+            layer.params[i] -= grad_scale * params_grad[i]
+            
+class Adam(Optimizer):
+    def __init__(self, lr=.05, beta1=.9, beta2=.999, eps=1e-9):
+        self.lr = learning_rate_mapper(lr)
+        self.beta1 = beta1
+        self.beta2 = beta2
+        self.eps = eps
+        self.moments = dict()
+        self.norms = dict()
+    
+    def __call__(self, layer, params_grad, **kwargs):
+        if layer not in self.moments:
+            self.moments[layer] = [np.zeros_like(p) for p in layer.params]
+            self.norms[layer] = [np.zeros_like(p) for p in layer.params]
+        
+        t = kwargs['t']
+        lr = self.lr(t)
+        for i, p in enumerate(layer.params):
+            self.moments[layer][i] *= self.beta1
+            self.moments[layer][i] += (1 - self.beta1) * params_grad[i]
+            
+            self.norms[layer][i] *= self.beta2
+            self.norms[layer][i] += (1 - self.beta2) * params_grad[i] ** 2
+            
+            # Bias correction on both
+            
+            moment_corrected = self.moments[layer][i] / (1 - self.beta1 ** (t+1))
+            norm_corrected = self.norms[layer][i] / (1 - self.beta2 ** (t+1))
+            
+            layer.params[i] -= lr * moment_corrected / np.sqrt(norm_corrected + self.eps)
+            
+            
+            
+optimizers_map = {'gd': GradientDescent, 'sgd': GradientDescent,
+                  'momentum_gd': MomentumGradientDescent,
+                  'rmsprop': RMSProp, 'adam': Adam}
 
 def optimizer_mapper(optimizer):
     if type(optimizer) is str:
         if optimizer.lower() in optimizers_map:
-            return optimizers_map[optimizer.lower()]
+            return optimizers_map[optimizer.lower()]()
         else:
             raise ValueError(f"Optimizer '{optimizer}' is not recognized")
     else:
