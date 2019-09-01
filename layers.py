@@ -196,8 +196,9 @@ class Dropout(Layer):
         self.output_dim = in_dim
 
 class Flatten(Layer):
-    def __init__(self, trainable=False):
+    def __init__(self):
         super().__init__()
+        self.trainable = False
 
     def forward_propagate(self, X, inference=False):
         return X.reshape((len(X), -1))
@@ -211,3 +212,42 @@ class Flatten(Layer):
         for dim in in_dim:
             out_dim *= dim
         self.output_dim = out_dim
+    
+class BatchNorm(Layer):
+    def __init__(self, beta=.8, eps=1e-8):
+        super().__init__()
+        self.eps = eps
+        self.beta = beta
+        self.gammas = None
+        self.betas = None
+        self.mus = None
+        self.sigmas = None
+    
+    def forward_propagate(self, X, inference=False):
+        Z = (X - X.mean(axis=0)) / (X.std(axis=0) + self.eps)
+        A = self.gammas * Z + self.betas
+        if not inference:
+            self.last_input = X
+            self.last_output = A
+            self.mus = self.beta * self.mus + (1 - self.beta) * X.mean(axis=0)
+            self.sigmas = self.beta * self.sigmas + (1 - self.beta) * X.std(axis=0)
+        return A
+    
+    def backward_propagate(self, dA):
+        dZ = dA.T
+        m = len(dZ)
+        dgamma = self.last_input.T @ dZ / m
+        dbeta = np.mean(dZ, axis=0, keepdims=True)
+        dA_prev = self.gammas @ dZ.T
+        return dA_prev, dgamma.T, dbeta.T
+    
+    def _initialize(self, in_dim):
+        self.input_dim = in_dim
+        self.output_dim = in_dim
+        self.gammas = np.ones_like(in_dim)
+        self.betas = np.zeros_like(in_dim)
+
+        self.sigmas = np.ones_like(in_dim)
+        self.mus = np.zeros_like(in_dim)
+
+        self.params = [self.gammas, self.betas]
