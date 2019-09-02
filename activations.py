@@ -148,7 +148,7 @@ class Softmax(Activation):
         pass
   
     def forward(self, X):
-        return self._softmax(X)
+        return self._softmax(X, forward=True)
   
     def backward(self, Z):
         """
@@ -167,16 +167,17 @@ class Softmax(Activation):
 #                     else:
 #                         Jac[k, i,j] = - logits[k, i] * logits[k, j]
 #         return Jac
-        s = self._softmax(Z)
+        s = self._softmax(Z, forward=False)
         return s * (1 - s)
     
-    def _softmax(self, v, scale=True):
+    def _softmax(self, v, scale=True, forward=True):
         """
         Scaling is used for better numerical stability
         """
         if scale:
-            v -= np.max(v)
-        return (np.exp(v).T / np.exp(v).sum(axis=1)).T
+            v = v - np.max(v)
+        npv = np.exp(v)
+        return (npv.T / npv.sum(axis=1)).T
     
     def __repr__(self):
         return 'softmax'

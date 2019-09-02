@@ -184,6 +184,10 @@ class NeuralNetwork:
                 end_idx += batch_size
                 
                 t += 1
+                loss =  self.loss.forward( Y_batch, y_pred)
+                if self.debug and np.isnan(loss):
+                    print(f'= loss is nan on epoch {i} | step {step}',)
+                    should_stop = True
             self._on_epoch_end(params)
 
         return params['history']
@@ -247,6 +251,7 @@ class NeuralNetwork:
             self.layers[i]._initialize(self.layers[i-1].output_dim)
         
         self.initialized = True
+        self.optim.reset()
         
         
 

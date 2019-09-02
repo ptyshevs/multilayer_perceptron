@@ -136,6 +136,7 @@ class Dense(Layer):
             return activation
     
     def _initialize(self, in_dim):
+        self.params.clear()
         out_dim = self.output_dim
         self.input_dim = in_dim
         initializer = self.initializer
@@ -169,8 +170,7 @@ class Dense(Layer):
         else:
             raise ValueError(f"Unrecognized initialization scheme {initializer}")
         
-        self.params.append(self.W)
-        self.params.append(self.b)
+        self.params = [self.W, self.b]
             
 
 class Dropout(Layer):
@@ -214,7 +214,7 @@ class Flatten(Layer):
         self.output_dim = out_dim
     
 class BatchNorm(Layer):
-    def __init__(self, beta=.8, eps=1e-8):
+    def __init__(self, beta=.99, eps=1e-3):
         super().__init__()
         self.eps = eps
         self.beta = beta
@@ -224,39 +224,81 @@ class BatchNorm(Layer):
         self.sigmas = None
     
     def forward_propagate(self, X, inference=False):
+        mu, sigma = X.mean(axis=0), X.std(axis=0)
+        sigma = np.where(sigma >= self.eps, sigma, self.eps)
         if inference:
-            X = (X - self.mus) / self.sigmas
+            Z = (X - self.mus) / (self.sigmas + self.eps)
         else:
             self.last_input = X
-            self.mus = self.beta * self.mus + (1 - self.beta) * X.mean(axis=0)
-            self.sigmas = self.beta * self.sigmas + (1 - self.beta) * X.std(axis=0)
-
-        Z = (X - X.mean(axis=0)) / (X.std(axis=0) + self.eps)
-        A = Z @ self.gammas + self.betas
+            self.mus = self.beta * self.mus + (1 - self.beta) * mu
+            self.sigmas = self.beta * self.sigmas + (1 - self.beta) * sigma
+            Z = (X - mu) / sigma
+        A = Z * self.gammas + self.betas
         
         if not inference:
             self.last_output = A
+            self.last_mu = mu
+            self.last_sigma = sigma
+            self.input_centered = X - mu
         return A
     
-    def backward_propagate(self, dA):
-        dZ = dA
-        m = len(dZ)
-        print(f'input_shape {self.last_input.shape} | dZ.shape {dZ.shape}')
-        dgamma = self.last_input.T @ dZ / m
-        print(f'dgamma.shape= {dgamma.shape}')
-        dbeta = np.sum(dZ, axis=0, keepdims=True)
-        print('self.gammas.shape=', self.gammas.shape)
-        dA_prev = dZ @ self.gammas.T
-        return dA_prev, dgamma.T, dbeta.T
+    def backward_propagate_legasy(self, dy):
+        dy = dy.T
+
+        n, d = dy.shape
+
+        dgamma = np.sum(self.last_output * dy, axis=0, keepdims=True)
+        dbeta = np.sum(dy, axis=0, keepdims=True)
+
+        dZ = dy * self.gammas
+        inv_var = 1 / self.last_sigma
+        Xhat = self.last_output
+        dx = (1. / n) * inv_var * (n * dZ - np.sum(dZ, axis=0) - Xhat * np.sum(dZ * Xhat, axis=0))
+        dA_prev = dx
+        return dA_prev.T, dgamma, dbeta
+    
+    
+    def backward_propagate(self, dy):
+        dy = dy.T
+
+        n, d = dy.shape
+
+        dgamma = np.sum(self.last_output * dy, axis=0, keepdims=True)
+        dbeta = np.sum(dy, axis=0, keepdims=True)
+
+        dZ = dy * self.gammas
+#         inv_var = 1 / np.sqrt(self.last_sigma ** 2 + self.eps)
+        Xhat = self.last_output
+
+        dvar = np.sum(dZ * (self.last_input - self.last_mu) * (-.5 * (self.last_sigma**2 + self.eps) ** (-3/2)), axis=0)
+    
+        p1 = np.sum(-dZ / self.last_sigma, axis=0)
+        p2 = dvar * (-2/n) * np.sum(self.last_input - self.last_mu, axis=0)
+        dmu = p1 + p2
+        o1 = dZ / self.last_sigma
+        o2 =  dvar * (2/n) * (self.input_centered)
+        o3 = dmu / n
+        dx = o1 + o2 + o3
+
+        dA_prev = dx
+        return dA_prev.T, dgamma, dbeta
     
     def _initialize(self, in_dim):
-        print('in_dim=', in_dim)
         self.input_dim = in_dim
         self.output_dim = in_dim
-        self.gammas = np.ones((*in_dim[1:], 1))
-        self.betas = np.zeros_like((*in_dim[1:], 1))
+        if type(in_dim) is int:
+            shape = (1, in_dim)
+        else:
+            shape = (1, *in_dim[1:])
+        self.gammas = np.ones(shape)
+        self.betas = np.zeros(shape)
 
-        self.sigmas = np.ones_like((*in_dim[1:], 1))
-        self.mus = np.zeros_like((*in_dim[1:], 1))
+        self.sigmas = np.ones(shape)
+        self.mus = np.zeros(shape)
 
         self.params = [self.gammas, self.betas]
+
+    @property
+    def _n_params(self):
+        # 4x the number of activations of the previous layer
+        return self.gammas.size + self.betas.size + self.sigmas.size + self.mus.size

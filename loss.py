@@ -20,7 +20,7 @@ class BinaryCrossEntropy(Loss):
         return -(Y * np.log(Y_clipped) + (1 - Y) * np.log(1 - Y_clipped)).mean()
     
     def backward(self, Y, Y_pred):
-        return (Y_pred - Y) / (Y_pred * (1 - Y_pred))
+        return (Y_pred - Y) / (Y_pred * (1 - Y_pred) + 1e-9)
     
     def __repr__(self):
         return "binary_crossentropy"

@@ -53,6 +53,12 @@ class Optimizer:
         """ Class responsible for training process """
         pass
     
+    def __call__(self):
+        pass
+    
+    def reset(self):
+        pass
+    
 class GradientDescent(Optimizer):
     def __init__(self, learning_rate=.05):
         self.learning_rate = learning_rate_mapper(learning_rate)
@@ -105,11 +111,12 @@ class RMSProp(Optimizer):
             layer.params[i] -= grad_scale * params_grad[i]
             
 class Adam(Optimizer):
-    def __init__(self, lr=.01, beta1=.9, beta2=.999, eps=1e-8):
+    def __init__(self, lr=.01, beta1=.9, beta2=.999, eps=1e-8, clipvalue=None):
         self.lr = learning_rate_mapper(lr)
         self.beta1 = beta1
         self.beta2 = beta2
         self.eps = eps
+        self.clipvalue = clipvalue
         self.moments = dict()
         self.norms = dict()
     
@@ -121,6 +128,8 @@ class Adam(Optimizer):
         t = kwargs['t']
         lr = self.lr(t)
         for i, p in enumerate(layer.params):
+            if self.clipvalue is not None:
+                params_grad[i] = np.clip(params_grad[i], -self.clipvalue, self.clipvalue)
             self.moments[layer][i] *= self.beta1
             self.moments[layer][i] += (1 - self.beta1) * params_grad[i]
             
@@ -134,7 +143,10 @@ class Adam(Optimizer):
             
             layer.params[i] -= lr * moment_corrected / np.sqrt(norm_corrected + self.eps)
             
-            
+    def reset(self):
+        self.moments.clear()
+        self.norms.clear()
+
             
 optimizers_map = {'gd': GradientDescent, 'sgd': GradientDescent,
                   'momentum_gd': MomentumGradientDescent,
