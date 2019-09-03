@@ -1,7 +1,10 @@
 import numpy as np
 
-def accuracy(y_true, y_pred, threshold=.5):
-        ev = y_true == (y_pred > threshold)
+def accuracy(y_true, y_pred, threshold=.5, use_threshold=False):
+        if use_threshold:
+            ev = y_true == (y_pred > threshold)
+        else:  # use argmax
+            ev = np.argmax(y_true, axis=1) == np.argmax(y_pred, axis=1)
         return ev.sum() / ev.size
 
 def mean_squared_error(y_true, y_pred):
