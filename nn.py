@@ -38,7 +38,8 @@ class History:
 
 
 class NeuralNetwork:
-    def __init__(self, loss=None, optimizer=None, verbose=False, verbose_step=100, debug=False):
+    def __init__(self, loss=None, optimizer=None, verbose=False, verbose_step=100, debug=False,
+                 random_state=None):
         """
         Class containing Neural Network architecture: Layers and Optimizer
         
@@ -53,6 +54,7 @@ class NeuralNetwork:
         self.verbose = verbose
         self.verbose_step = verbose_step
         self.debug = debug
+        self.random_state = random_state
 
         self.should_stop = False
         self.initialized = False
@@ -111,7 +113,6 @@ class NeuralNetwork:
             mapped_metrics.append(metric_mapper(m))
         params['metrics'] = mapped_metrics
 
-        
     def _record_history_entry(self, params):
         entry = {"epoch": params['epoch']}
         
@@ -147,10 +148,11 @@ class NeuralNetwork:
         if (self.verbose and (epoch % self.verbose_step == 0 or epoch == n_epochs)) or self.debug:
             self._handle_output(entry, n_epochs)
 
-
     def fit(self, X, Y, X_val=None, Y_val=None, n_epochs=1, batch_size=0, 
             callbacks=None, metrics=[], reinitialize=True):
-        
+        if self.random_state is not None:
+            np.random.seed(self.random_state)
+
         params = {'batch_size': batch_size, 'callbacks': callbacks, 'reinitialize': reinitialize,
                         'metrics': metrics, 'callbacks': callbacks, 'history': History(),
                         'X': X, 'Y': Y, 'X_val': X_val, 'Y_val': Y_val, 'n_epochs': n_epochs}
@@ -171,23 +173,24 @@ class NeuralNetwork:
             start_idx, end_idx = 0, batch_size
             params['epoch'] = i
             for step in range(n_steps):
-                
+                if self.should_stop:
+                    break
                 X_batch = X[start_idx:end_idx, ...]
                 Y_batch = Y[start_idx:end_idx, ...]
                 
                 y_pred = self.forward_(X_batch)
 
                 grads = self.backward_(Y_batch, y_pred)
-                self._optimize(grads, t)
+                self._optimize(grads, t, batch_size)
                 
                 start_idx += batch_size
                 end_idx += batch_size
                 
                 t += 1
-                loss =  self.loss.forward( Y_batch, y_pred)
+                loss = self.loss.forward(Y_batch, y_pred)
                 if self.debug and np.isnan(loss):
                     print(f'= loss is nan on epoch {i} | step {step}',)
-                    should_stop = True
+                    self.should_stop = True
             self._on_epoch_end(params)
 
         return params['history']
@@ -207,14 +210,13 @@ class NeuralNetwork:
             dA, *dParams = l.backward_propagate(dA)
             grads[l] = dParams
         return grads
-    
-    
-    def _optimize(self, grads, t):
+
+    def _optimize(self, grads, t, batch_size):
         for i, l in enumerate(reversed(self.layers)):
             if not l.trainable:
                 continue
             # Don't remove t from function call - it is used for learning rate scheduling
-            self.optim(l, grads[l], t=t)
+            self.optim(l, grads[l], t=t, batch_size=batch_size)
     
     def predict(self, X):
         if not self.initialized:
@@ -252,8 +254,7 @@ class NeuralNetwork:
         
         self.initialized = True
         self.optim.reset()
-        
-        
+
 
 if __name__ == '__main__':
     nn = NeuralNetwork('crossentropy')

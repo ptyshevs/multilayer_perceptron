@@ -60,6 +60,7 @@ class Layer:
     def __repr__(self):
         return self.__class__.__name__
 
+
 class Dense(Layer):
     def __init__(self, n_units, activation='identity', trainable=True,
                  dropout_rate=0., initializer='heuristic', weights_regularizer=None, bias_regularizer=None):
@@ -123,9 +124,7 @@ class Dense(Layer):
     
     @property
     def _n_params(self):
-        w = self.W.shape[0] * self.W.shape[1]
-        b = self.b.shape[0]
-        return w + b
+        return sum([p.size for p in self.params])
     
     def _activation_mapper(self, activation):
         if activation is None:

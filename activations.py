@@ -177,12 +177,15 @@ class Softmax(Activation):
         if scale:
             v = v - np.max(v)
         npv = np.exp(v)
-        return (npv.T / npv.sum(axis=1)).T
+        r = (npv.T / npv.sum(axis=1)).T
+        print(v.min(), v.mean(), v.max())
+        return r
     
     def __repr__(self):
         return 'softmax'
-    
-activations = {'identity':Identity,
+
+
+activations = {'identity': Identity,
                'linear': Linear,
                 'sigmoid': Sigmoid,
                'tanh': Tanh,
@@ -191,6 +194,7 @@ activations = {'identity':Identity,
                'leaky_relu': LeakyRelu,
                'elu': ELU,
                'quadratic': Quadratic}
+
 
 def activation_to_obj(name):
     if name in activations:
