@@ -178,7 +178,7 @@ class Softmax(Activation):
             v = v - np.max(v)
         npv = np.exp(v)
         r = (npv.T / npv.sum(axis=1)).T
-        print(v.min(), v.mean(), v.max())
+        # print(v.min(), v.mean(), v.max())
         return r
     
     def __repr__(self):

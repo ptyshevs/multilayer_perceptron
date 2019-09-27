@@ -4,7 +4,7 @@ from layers import *
 from activations import *
 from metrics import metric_mapper
 from optim import *
-import pickle
+import tqdm
 
 class History:
     def __init__(self):
@@ -172,7 +172,7 @@ class NeuralNetwork:
                 break
             start_idx, end_idx = 0, batch_size
             params['epoch'] = i
-            for step in range(n_steps):
+            for step in tqdm.tnrange(n_steps):
                 if self.should_stop:
                     break
                 X_batch = X[start_idx:end_idx, ...]
@@ -187,10 +187,10 @@ class NeuralNetwork:
                 end_idx += batch_size
                 
                 t += 1
-                loss = self.loss.forward(Y_batch, y_pred)
-                if self.debug and np.isnan(loss):
-                    print(f'= loss is nan on epoch {i} | step {step}',)
-                    self.should_stop = True
+                # loss = self.loss.forward(Y_batch, y_pred)
+                # if self.debug and np.isnan(loss):
+                #     print(f'= loss is nan on epoch {i} | step {step}',)
+                #     self.should_stop = True
             self._on_epoch_end(params)
 
         return params['history']
