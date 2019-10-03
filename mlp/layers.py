@@ -1,5 +1,5 @@
 import numpy as np
-from activations import Identity, activation_to_obj
+from .activations import activation_to_obj
 
 def normal_initializer(n, m, loc=0, scale=1):
     return np.random.normal(loc=loc, scale=scale, size=(n, m))
@@ -128,7 +128,7 @@ class Dense(Layer):
     
     def _activation_mapper(self, activation):
         if activation is None:
-            return Identity()
+            return activation_to_obj('identity')
         elif type(activation) is str:
             return activation_to_obj(activation)
         else:

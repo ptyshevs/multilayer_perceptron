@@ -1,9 +1,9 @@
 import numpy as np
-from loss import *
-from layers import *
-from activations import *
-from metrics import metric_mapper
-from optim import *
+from .loss import *
+from .layers import *
+from .activations import *
+from .metrics import metric_mapper
+from .optim import *
 import tqdm
 
 class History:
@@ -112,6 +112,25 @@ class NeuralNetwork:
         for m in params['metrics']:
             mapped_metrics.append(metric_mapper(m))
         params['metrics'] = mapped_metrics
+    
+    def compile(self, input_features):
+        """
+        Compile model to enforce initialization of the parameters
+        """
+        self._initialize(input_features)
+    
+    def get_params(self):
+        """
+        Returns list of references to parameters of individual layers
+        """
+        return [l.params for l in self.layers]
+    
+    def set_params(self, params):
+        """
+        Set parameter values for each layer. Same format is expected as in get_params().
+        """
+        for layer, params in zip(self.layers, params):
+            layer.params = params
 
     def _record_history_entry(self, params):
         entry = {"epoch": params['epoch']}
