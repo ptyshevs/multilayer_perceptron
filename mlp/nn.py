@@ -191,7 +191,11 @@ class NeuralNetwork:
                 break
             start_idx, end_idx = 0, batch_size
             params['epoch'] = i
-            for step in tqdm.tnrange(n_steps):
+            if self.verbose > 1:
+                iterator = tqdm.tnrange(n_steps)
+            else:
+                iterator = range(n_steps)
+            for step in iterator:
                 if self.should_stop:
                     break
                 X_batch = X[start_idx:end_idx, ...]

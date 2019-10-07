@@ -1,7 +1,7 @@
 # This script will split dataset into train and test parts
 
 import pandas as pd
-from tools import train_test_split
+from mlp.tools import train_test_split
 
 if __name__ == '__main__':
     df = pd.read_csv('resources/data.csv', header=None)

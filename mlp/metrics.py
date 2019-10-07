@@ -1,6 +1,6 @@
 import numpy as np
 
-def accuracy(y_true, y_pred, threshold=.5, use_threshold=False):
+def accuracy(y_true, y_pred, threshold=.5, use_threshold=True):
         if use_threshold:
             ev = y_true == (y_pred > threshold)
         else:  # use argmax
