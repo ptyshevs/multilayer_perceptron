@@ -1,14 +1,14 @@
 import numpy as np
 from .activations import activation_to_obj
 
-def normal_initializer(n, m, loc=0, scale=1):
-    return np.random.normal(loc=loc, scale=scale, size=(n, m))
+def normal_initializer(n, m, d=1, loc=0, scale=1):
+    return np.random.normal(loc=loc, scale=scale, size=(n, m, d)).squeeze()
 
-def uniform_initializer(n, m, low=0, high=1):
-    return np.random.uniform(low=low, high=high, size=(n, m))
+def uniform_initializer(n, m, d=1, low=0, high=1):
+    return np.random.uniform(low=low, high=high, size=(n, m, d)).squeeze()
 
-def zero_initializer(n, m):
-    return np.zeros((n, m))
+def zero_initializer(n, m, d=1):
+    return np.zeros((n, m, d)).squeeze()
 
 
 class L1Regularizer:
@@ -96,7 +96,8 @@ class Dense(Layer):
             self.last_output = Z
         
         A = self.activation.forward(Z)
-        A = A if (inference or self.dropout_rate == 0.) else self._dropout(A)
+        if not inference and self.dropout_rate > 0:
+            A = self._dropout(A)
         return A
         
     def backward_propagate(self, dA):
