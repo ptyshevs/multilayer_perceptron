@@ -2,13 +2,16 @@ import numpy as np
 from .activations import activation_to_obj
 
 def normal_initializer(n, m, d=1, loc=0, scale=1):
-    return np.random.normal(loc=loc, scale=scale, size=(n, m, d)).squeeze()
+    size = (n, m, d) if d > 1 else (n, m)
+    return np.random.normal(loc=loc, scale=scale, size=size)
 
 def uniform_initializer(n, m, d=1, low=0, high=1):
-    return np.random.uniform(low=low, high=high, size=(n, m, d)).squeeze()
+    size = (n, m, d) if d > 1 else (n, m)
+    return np.random.uniform(low=low, high=high, size=size)
 
 def zero_initializer(n, m, d=1):
-    return np.zeros((n, m, d)).squeeze()
+    size = (n, m, d) if d > 1 else (n, m)
+    return np.zeros(size)
 
 
 class L1Regularizer:

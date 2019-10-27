@@ -74,3 +74,9 @@ def save(model, path):
 def load(path):
     with open(path, 'rb') as fp:
         return pcl.loads(fp.read())
+
+def normalize(X, X_mean=None, X_std=None):
+    if X_mean is None and X_std is None:
+        X_mean = X.mean(axis=0)
+        X_std = X.std(axis=0)
+    return (X - X_mean) / X_std, X_mean, X_std
