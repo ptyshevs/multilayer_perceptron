@@ -180,6 +180,8 @@ class NeuralNetwork:
         X, Y, X_val, Y_val = params['X'], params['Y'], params['X_val'], params['Y_val']
         batch_size = params['batch_size']
         metrics = params['metrics']
+        self.batch_size = batch_size
+        self.n_epochs = n_epochs
 
         n_steps = len(X) // batch_size
         if len(X) % batch_size != 0:  # There is a last batch that is not full
